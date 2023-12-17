@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include shift_rotation *.css
+recursive-include shift_rotation *.csv
+recursive-include shift_rotation *.html
+recursive-include shift_rotation *.ico
+recursive-include shift_rotation *.js
+recursive-include shift_rotation *.json
+recursive-include shift_rotation *.md
+recursive-include shift_rotation *.png
+recursive-include shift_rotation *.py
+recursive-include shift_rotation *.svg
+recursive-include shift_rotation *.txt
+recursive-exclude shift_rotation *.pyc
