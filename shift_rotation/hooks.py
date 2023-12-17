@@ -9,7 +9,9 @@ app_license = "MIT"
 
 # Includes in <head>
 # ------------------
-
+doctype_js = {
+    "Shift Request" : "public/js/shift_request.js"
+}
 # include js, css files in header of desk.html
 # app_include_css = "/assets/shift_rotation/css/shift_rotation.css"
 # app_include_js = "/assets/shift_rotation/js/shift_rotation.js"
@@ -118,13 +120,12 @@ app_license = "MIT"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-#	"*": {
-#		"on_update": "method",
-#		"on_cancel": "method",
-#		"on_trash": "method"
-#	}
-# }
+doc_events = {
+	"Shift Request": {
+		"before_insert": "shift_rotation.public.py.shift_request.update_related_shifts",
+        "on_submit": "shift_rotation.public.py.shift_request.create_change_shift_of_switching_with"
+	},
+}
 
 # Scheduled Tasks
 # ---------------
@@ -215,3 +216,6 @@ app_license = "MIT"
 # auth_hooks = [
 #	"shift_rotation.auth.validate"
 # ]
+fixtures = [
+	{"dt": "Custom Field", "filters": [["module", "=", "Shift Rotation"]]},
+]
