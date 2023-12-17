@@ -29,12 +29,13 @@ def create_change_shift_of_switching_with(doc, method):
                 "to_date": doc.to_date
             }).insert(ignore_permissions=True,ignore_mandatory=True)
             new_doc.save()
+            new_doc.submit()
 
     #create entry for further dates for both the employees
     if doc.custom_switch_shift == 1 and doc.custom_auto_shift == 1:
         employee_shift_data = frappe.db.get_all('Shift Request', {'employee': doc.employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['shift_type', 'custom_original_to_date'], order_by='from_date desc', limit=1)
         if employee_shift_data:
-            new_doc = frappe.get_doc({
+            emp = frappe.get_doc({
                 "doctype": 'Shift Request',
                 "shift_type": employee_shift_data[0].shift_type,
                 "employee": doc.employee,
@@ -43,10 +44,11 @@ def create_change_shift_of_switching_with(doc, method):
                 "to_date": employee_shift_data[0].custom_original_to_date,
                 "custom_original_to_date": employee_shift_data[0].custom_original_to_date,
             }).insert(ignore_permissions=True,ignore_mandatory=True)
-            new_doc.save()
+            emp.save()
+            emp.submit()
         switch_employee_shift_data = frappe.db.get_all('Shift Request', {'employee': doc.custom_switch_employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['shift_type', 'custom_original_to_date'], order_by='from_date desc', limit=1)
         if switch_employee_shift_data:
-            new_doc = frappe.get_doc({
+            switch_emp = frappe.get_doc({
                 "doctype": 'Shift Request',
                 "shift_type": switch_employee_shift_data[0].shift_type,
                 "employee": doc.custom_switch_employee,
@@ -55,4 +57,5 @@ def create_change_shift_of_switching_with(doc, method):
                 "to_date": switch_employee_shift_data[0].custom_original_to_date,
                 "custom_original_to_date": employee_shift_data[0].custom_original_to_date,
             }).insert(ignore_permissions=True,ignore_mandatory=True)
-            new_doc.save()
+            switch_emp.save()
+            switch_emp.submit()
