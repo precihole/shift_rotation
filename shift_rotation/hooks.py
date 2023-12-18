@@ -122,8 +122,8 @@ doctype_js = {
 
 doc_events = {
 	"Shift Request": {
-		"before_insert": "shift_rotation.public.py.shift_request.update_related_shifts",
-        "on_submit": "shift_rotation.public.py.shift_request.create_change_shift_of_switching_with",
+		"before_insert": "shift_rotation.public.py.shift_request.adjust_shift_dates",
+        "on_submit": "shift_rotation.public.py.shift_request.handle_shift_switching",
         "on_cancel": "shift_rotation.public.py.shift_request.remove_all_effect"
 	},
 }

@@ -17,4 +17,7 @@ frappe.ui.form.on('Shift Request', {
     to_date:function(frm) {
         frm.set_value('custom_original_to_date', frm.doc.to_date)
     },
+    from_date:function(frm) {
+        frm.set_value('custom_original_from_date', frm.doc.from_date)
+    },
 });
