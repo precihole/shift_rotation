@@ -13,7 +13,6 @@ def update_shift_request(employee, custom_switch_shift, from_date, to_date):
     }
 
     shift_requests = frappe.db.get_all('Shift Request', filters, ['name', 'from_date'], order_by='from_date desc')
-    frappe.errprint(shift_requests)
     if shift_requests:
         last_shift_request = shift_requests[0]
         if last_shift_request.from_date == frappe.utils.getdate(from_date):
@@ -24,91 +23,74 @@ def update_shift_request(employee, custom_switch_shift, from_date, to_date):
             frappe.db.set_value('Shift Assignment', {'shift_request': last_shift_request.name}, 'end_date', frappe.utils.add_to_date(from_date, days=-1))
 
 def handle_shift_switching(doc, method):
+    def get_shift_data(employee):
+        filters = {
+            'employee': employee,
+            'custom_switch_shift': 0,
+            'docstatus': 1
+        }
+        return frappe.db.get_all(
+            'Shift Request',
+            filters,
+            ['shift_type', 'custom_original_from_date', 'custom_original_to_date'],
+            order_by='from_date desc',
+            limit=1
+        )
+    
+    def create_entry_for_further_dates(employee, shift_data, to_date):
+        if shift_data:
+            if not shift_data[0].custom_original_to_date == frappe.utils.getdate(to_date) and shift_data[0].custom_original_from_date != frappe.utils.getdate(to_date):
+                shift_type = shift_data[0].shift_type
+                shift_request = frappe.get_doc({
+                    "doctype": 'Shift Request',
+                    "shift_type": shift_type,
+                    "employee": employee,
+                    "custom_shift_change_request": doc.custom_shift_change_request,
+                    "status": 'Approved',
+                    "from_date": frappe.utils.add_to_date(to_date, days=1),
+                    "to_date": shift_data[0].custom_original_to_date,
+                    "custom_original_to_date": shift_data[0].custom_original_to_date,
+                }).insert(ignore_permissions=True, ignore_mandatory=True)
+                shift_request.save()
+                shift_request.submit()
+
     if doc.custom_switch_shift == 1:
         if doc.custom_auto_shift == 0:
-            #auto shift
-            create_and_submit_shift_request(
-                doc.custom_switch_employee,
-                1,
-                doc.employee,
-                doc.name,
-                doc.from_date,
-                doc.to_date,
-                shift_type=get_last_shift_type(doc.employee)
-            )
+            last_shift_type = frappe.db.get_all('Shift Request', {'employee': doc.employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['shift_type'], order_by='from_date desc', limit=1)
+            if last_shift_type:
+                shift_request = frappe.get_doc({
+                    "doctype": 'Shift Request',
+                    "shift_type": last_shift_type[0].shift_type,
+                    "employee": doc.custom_switch_employee,
+                    "status": 'Approved',
+                    "custom_switch_shift": 1,
+                    "custom_auto_shift": 1,
+                    "custom_switch_employee": doc.employee,
+                    "custom_switch_shift_type": last_shift_type[0].shift_type,
+                    "custom_shift_change_request": doc.name,
+                    "from_date": doc.from_date,
+                    "to_date": doc.to_date
+                }).insert(ignore_permissions=True,ignore_mandatory=True)
+                shift_request.save()
+                shift_request.submit()
 
         elif doc.custom_auto_shift == 1:
-            create_and_submit_shift_request_for_further_dates(
-                doc.employee,
-                doc.to_date,
-                get_last_shift_data(doc.employee)
-            )
+            employee_shift_data = get_shift_data(doc.employee)
+            create_entry_for_further_dates(doc.employee, employee_shift_data, doc.to_date)
 
-            create_and_submit_shift_request_for_further_dates(
-                doc.custom_switch_employee,
-                doc.to_date,
-                get_last_shift_data(doc.custom_switch_employee)
-            )
-
-def get_last_shift_type(employee):
-    return frappe.db.get_value('Shift Request', {
-        'employee': employee,
-        'custom_switch_shift': 0,
-        'docstatus': 1
-    }, 'shift_type', order_by='from_date desc')
-
-def get_last_shift_data(employee):
-    return frappe.db.get_all('Shift Request', {
-        'employee': employee,
-        'custom_switch_shift': 0,
-        'docstatus': 1
-    }, ['shift_type', 'custom_original_to_date'], order_by='from_date desc', limit=1)
-
-def create_and_submit_shift_request(employee, from_date, to_date, s_flag, shift_type=None, s_employee=None, docname=None):
-    shift_doc = frappe.new_doc('Shift Request')
-    shift_doc.update({
-        'doctype': 'Shift Request',
-        'shift_type': shift_type,
-        'employee': employee,
-        'status': 'Approved',
-        'custom_switch_shift': 1,
-        'custom_auto_shift': s_flag,
-        'custom_switch_employee': s_employee,
-        'custom_shift_change_request': docname,
-        'from_date': from_date,
-        'to_date': to_date,
-    })
-
-    shift_doc.insert(ignore_permissions=True, ignore_mandatory=True)
-    shift_doc.save()
-    shift_doc.submit()
-
-def create_and_submit_shift_request_for_further_dates(employee, to_date, last_shift_data):
-    if last_shift_data and not last_shift_data[0].custom_original_to_date == to_date:
-        create_and_submit_shift_request(
-            employee,
-            frappe.utils.add_to_date(to_date, days=1),
-            last_shift_data[0].custom_original_to_date,
-            0,
-            shift_type=last_shift_data[0].shift_type
-        )
+            employee_shift_data = get_shift_data(doc.custom_switch_employee)
+            create_entry_for_further_dates(doc.custom_switch_employee, employee_shift_data, doc.to_date)
         
-def remove_all_effect(doc, method):
+def revert_shift_change(doc, method):
     if doc.custom_switch_shift == 1 and doc.custom_auto_shift == 0:
-        #cancel all linked document
-        frappe.db.set_value('Shift Request', {'custom_shift_change_request': doc.name, 'docstatus': 1}, 'status', 'Cancelled')
-        frappe.db.set_value('Shift Request', {'custom_shift_change_request': doc.name, 'docstatus': 1}, 'workflow_state', 'Cancelled')
-        frappe.db.set_value('Shift Request', {'custom_shift_change_request': doc.name, 'docstatus': 1}, 'docstatus', 2)
+        shift_request_filter = {'custom_shift_change_request': doc.name, 'docstatus': 1}
+        frappe.db.set_value('Shift Request', shift_request_filter, {'status': 'Cancelled', 'workflow_state': 'Cancelled', 'docstatus': 2})
         
-        all_linked = frappe.db.get_all('Shift Request', {'custom_shift_change_request': doc.name, 'docstatus': 1}, ['name'])
-        for item in all_linked:
-            frappe.db.set_value('Shift Assignment', {'shift_request': doc.name, 'docstatus': 1}, 'status', 'Cancelled')
-            frappe.db.set_value('Shift Assignment', {'shift_request': doc.name, 'docstatus': 1}, 'workflow_state', 'Cancelled')
-            frappe.db.set_value('Shift Assignment', {'shift_request': item.name, 'docstatus': 1}, 'docstatus', 2)
+        assignments_filter = {'shift_request': doc.name, 'docstatus': 1}
+        frappe.db.set_value('Shift Assignment', assignments_filter, {'status': 'Cancelled', 'workflow_state': 'Cancelled', 'docstatus': 2})
 
-        #update last shift as it is
-        get_employee_last_shift_request = frappe.db.get_all('Shift Request', {'employee': doc.employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['name', 'custom_original_to_date'], order_by='from_date desc')
+        get_employee_last_shift_request = frappe.db.get_all('Shift Request', {'employee': doc.employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['name', 'custom_original_to_date'], order_by='from_date desc', limit=1)
         frappe.db.set_value('Shift Request', get_employee_last_shift_request[0].name, 'to_date', get_employee_last_shift_request[0].custom_original_to_date)
-        
-        get_switch_employee_last_shift_request = frappe.db.get_all('Shift Request', {'employee': doc.custom_switch_employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['name', 'custom_original_to_date'], order_by='from_date desc')
+
+        get_switch_employee_last_shift_request = frappe.db.get_all('Shift Request', {'employee': doc.custom_switch_employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['name', 'custom_original_to_date'], order_by='from_date desc', limit=1)
         frappe.db.set_value('Shift Request', get_switch_employee_last_shift_request[0].name, 'to_date', get_switch_employee_last_shift_request[0].custom_original_to_date)

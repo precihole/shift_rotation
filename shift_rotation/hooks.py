@@ -124,7 +124,7 @@ doc_events = {
 	"Shift Request": {
 		"before_insert": "shift_rotation.public.py.shift_request.adjust_shift_dates",
         "on_submit": "shift_rotation.public.py.shift_request.handle_shift_switching",
-        "on_cancel": "shift_rotation.public.py.shift_request.remove_all_effect"
+        "on_cancel": "shift_rotation.public.py.shift_request.revert_shift_change"
 	},
 }
 
