@@ -219,4 +219,5 @@ doc_events = {
 # ]
 fixtures = [
 	{"dt": "Custom Field", "filters": [["module", "=", "Shift Rotation"]]},
+    {"dt": "Property Setter", "filters": [["module", "=", "Shift Rotation"]]},
 ]
