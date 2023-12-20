@@ -32,14 +32,14 @@ def handle_shift_switching(doc, method):
         return frappe.db.get_all(
             'Shift Request',
             filters,
-            ['shift_type', 'custom_original_from_date', 'custom_original_to_date'],
+            ['shift_type', 'from_date', 'custom_original_from_date', 'custom_original_to_date'],
             order_by='from_date desc',
             limit=1
         )
     
     def create_entry_for_further_dates(employee, shift_data, to_date):
         if shift_data:
-            if not shift_data[0].custom_original_to_date == frappe.utils.getdate(to_date) and shift_data[0].custom_original_from_date != frappe.utils.getdate(to_date):
+            if frappe.utils.getdate(frappe.utils.add_to_date(to_date, days=1)) <= shift_data[0].custom_original_to_date and frappe.utils.getdate(frappe.utils.add_to_date(to_date, days=1)) != shift_data[0].from_date:
                 shift_type = shift_data[0].shift_type
                 shift_request = frappe.get_doc({
                     "doctype": 'Shift Request',
@@ -84,10 +84,16 @@ def handle_shift_switching(doc, method):
 def revert_shift_change(doc, method):
     if doc.custom_switch_shift == 1 and doc.custom_auto_shift == 0:
         shift_request_filter = {'custom_shift_change_request': doc.name, 'docstatus': 1}
-        frappe.db.set_value('Shift Request', shift_request_filter, {'status': 'Cancelled', 'workflow_state': 'Cancelled', 'docstatus': 2})
+        if doc.workflow_state:
+            frappe.db.set_value('Shift Request', shift_request_filter, {'status': 'Cancelled', 'workflow_state': 'Cancelled', 'docstatus': 2})
+        else:
+            frappe.db.set_value('Shift Request', shift_request_filter, {'status': 'Cancelled', 'docstatus': 2})
         
         assignments_filter = {'shift_request': doc.name, 'docstatus': 1}
-        frappe.db.set_value('Shift Assignment', assignments_filter, {'status': 'Cancelled', 'workflow_state': 'Cancelled', 'docstatus': 2})
+        if doc.workflow_state:
+            frappe.db.set_value('Shift Assignment', assignments_filter, {'status': 'Cancelled', 'workflow_state': 'Cancelled', 'docstatus': 2})
+        else:
+            frappe.db.set_value('Shift Assignment', assignments_filter, {'status': 'Cancelled', 'docstatus': 2})
 
         get_employee_last_shift_request = frappe.db.get_all('Shift Request', {'employee': doc.employee, 'custom_switch_shift': 0, 'docstatus': 1}, ['name', 'custom_original_to_date'], order_by='from_date desc', limit=1)
         frappe.db.set_value('Shift Request', get_employee_last_shift_request[0].name, 'to_date', get_employee_last_shift_request[0].custom_original_to_date)

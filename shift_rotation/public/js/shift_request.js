@@ -20,4 +20,21 @@ frappe.ui.form.on('Shift Request', {
     from_date:function(frm) {
         frm.set_value('custom_original_from_date', frm.doc.from_date)
     },
+    custom_switch_shift:function(frm) {
+        if(frm.doc.custom_switch_shift == 1){
+            frappe.call({
+                method: "shift_rotation.api.get_last_shift",
+                args: {
+                    "emp": frm.doc.custom_switch_employee,
+                },
+                callback: function (res) {
+                    if (res.message != undefined){
+                        console.log(res.message)
+                        frm.set_value('shift_type', res.message)
+                        frm.set_value('custom_switch_shift_type', res.message)
+                    }
+                }
+            })
+        }
+    },
 });
